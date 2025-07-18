@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+
+{% block title %}听写结果 - {{ session.session_name }} - EWord{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-8">
+    <!-- 页面标题 -->
+    <div class="text-center">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">听写结果</h1>
+        <p class="text-lg text-gray-600">{{ session.session_name }}</p>
+    </div>
+
+    <!-- 总体统计 -->
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+            <div class="text-3xl font-bold text-blue-600 mb-2">{{ total_unique_words }}</div>
+            <div class="text-gray-600">总单词数</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+            <div class="text-3xl font-bold text-green-600 mb-2">{{ correct_unique_words }}</div>
+            <div class="text-gray-600">已掌握单词</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+            <div class="text-3xl font-bold text-red-600 mb-2">{{ total_attempts }}</div>
+            <div class="text-gray-600">总尝试次数</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+            <div class="text-3xl font-bold text-purple-600 mb-2">{{ accuracy_rate }}%</div>
+            <div class="text-gray-600">掌握率</div>
+        </div>
+    </div>
+
+    <!-- 练习信息 -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">练习信息</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <div class="text-sm text-gray-600">开始时间</div>
+                <div class="text-lg font-semibold text-gray-900">{{ session.start_time|date:"Y-m-d H:i:s" }}</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-600">结束时间</div>
+                <div class="text-lg font-semibold text-gray-900">
+                    {% if session.end_time %}
+                        {{ session.end_time|date:"Y-m-d H:i:s" }}
+                    {% else %}
+                        进行中
+                    {% endif %}
+                </div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-600">总用时</div>
+                <div class="text-lg font-semibold text-gray-900">{{ session.duration|time:"H:i:s" }}</div>
+            </div>
+            <div>
+                <div class="text-sm text-gray-600">单词书</div>
+                <div class="text-lg font-semibold text-gray-900">{{ session.word_list.name }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 复习计划建议 -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">复习计划建议</h2>
+        <div class="mb-6">
+            <p class="text-gray-700">
+                根据艾宾浩斯遗忘曲线，为了有效记忆单词，建议按照以下时间间隔进行复习：
+            </p>
+            <ul class="list-disc list-inside mt-3 space-y-2 text-gray-700">
+                <li>第1次复习：今天练习后的1天</li>
+                <li>第2次复习：第1次复习后的2天</li>
+                <li>第3次复习：第2次复习后的4天</li>
+                <li>第4次复习：第3次复习后的7天</li>
+                <li>第5次复习：第4次复习后的15天</li>
+            </ul>
+        </div>
+        
+        <div class="flex justify-center">
+            <a href="{% url 'vocabulary:create_review_plan' %}?word_list={{ session.word_list.id }}" 
+               class="bg-blue-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-600 transition">
+                创建复习计划
+            </a>
+        </div>
+    </div>
+
+    <!-- 按难度统计 -->
+    {% if difficulty_stats %}
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">按难度统计</h2>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {% for level, stats in difficulty_stats.items %}
+            <div class="border border-gray-200 rounded-lg p-4">
+                <div class="text-center">
+                    <div class="text-lg font-semibold text-gray-900">
+                        {% if level == 1 %}简单
+                        {% elif level == 2 %}中等
+                        {% else %}困难
+                        {% endif %}
+                    </div>
+                    <div class="text-3xl font-bold 
+                        {% if level == 1 %}text-green-600
+                        {% elif level == 2 %}text-yellow-600
+                        {% else %}text-red-600
+                        {% endif %} mb-2">
+                        {% if stats.total > 0 %}
+                            {{ stats.correct }}/{{ stats.total }}
+                        {% else %}
+                            0/0
+                        {% endif %}
+                    </div>
+                    <div class="text-sm text-gray-600">
+                        {{ stats.accuracy_rate }}% 正确率
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 详细记录 -->
+    {% if records %}
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">详细记录</h2>
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">单词</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">您的答案</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">正确答案</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">结果</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">用时</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">难度</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">掌握程度</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for record in records %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ record.word.word }}</div>
+                            <div class="text-sm text-gray-500">{{ record.word.translation }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ record.user_answer|default:"未作答" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">
+                            {{ record.word.word }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if record.is_correct %}
+                            <span class="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800">正确</span>
+                            {% else %}
+                            <span class="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800">错误</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ record.time_taken|floatformat:1 }}秒
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs rounded-full 
+                                {% if record.word.difficulty_level == 1 %}bg-green-100 text-green-800
+                                {% elif record.word.difficulty_level == 2 %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ record.word.get_difficulty_level_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            {% if record.learning_record %}
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-green-500 h-2 rounded-full" style="width: '{{ record.learning_record.mastery_level }}%';"></div>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">{{ record.learning_record.mastery_level }}%</div>
+                            {% else %}
+                            <span class="text-xs text-gray-500">未记录</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 操作按钮 -->
+    <div class="flex justify-center space-x-4">
+        <a href="{% url 'dictation:start_dictation' session.word_list.id %}" 
+           class="btn-primary text-white px-6 py-3 rounded-lg font-semibold">
+            重新练习
+        </a>
+        <a href="{% url 'vocabulary:review_dashboard' %}" 
+           class="bg-green-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-600 transition">
+            复习计划
+        </a>
+        <a href="{% url 'dictation:home' %}" 
+           class="bg-gray-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-600 transition">
+            返回首页
+        </a>
+    </div>
+</div>
+{% endblock %} 

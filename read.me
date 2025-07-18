@@ -1,0 +1,200 @@
+# EWord 背单词软件
+
+一个基于Django开发的背单词软件，实现在电脑上听写的功能。
+
+## 功能特性
+
+### 单词管理
+- ✅ 添加、编辑、删除单词
+- ✅ 支持音标、中文释义、例句
+- ✅ 单词难度分级（简单、中等、困难）
+- ✅ 创建和管理单词列表
+- ✅ 单词列表排序和分类
+
+### 听写练习
+- ✅ 基于单词列表的听写练习
+- ✅ 实时进度跟踪
+- ✅ 答案验证和反馈
+- ✅ 练习记录和统计
+- ✅ 支持跳过和显示答案
+- ✅ 语音朗读功能（美式发音2遍）
+- ✅ 自动播放和重复播放
+- ✅ 答题前隐藏单词和释义
+
+### 学习进度
+- ✅ 个人学习进度跟踪
+- ✅ 单词掌握程度评估
+- ✅ 练习历史记录
+- ✅ 数据可视化图表
+- ✅ 按难度统计分析
+
+### 管理后台
+- ✅ Django Admin管理界面
+- ✅ 数据导入导出
+- ✅ 用户权限管理
+- ✅ 系统配置管理
+
+## 技术栈
+
+- **后端框架**: Django 5.2.4
+- **数据库**: SQLite
+- **前端样式**: Tailwind CSS (本地构建)
+- **图表库**: ECharts (本地版本)
+- **Excel处理**: openpyxl
+
+## 安装和运行
+
+### 1. 环境要求
+- Python 3.8+
+- pip
+
+### 2. 克隆项目
+```bash
+git clone <repository-url>
+cd EWord
+```
+
+### 3. 创建虚拟环境
+```bash
+python -m venv venv
+source venv/bin/activate  # Linux/Mac
+# 或
+venv\Scripts\activate  # Windows
+```
+
+### 4. 安装依赖
+```bash
+pip install -r requirements.txt
+```
+
+### 5. 数据库迁移
+```bash
+python manage.py makemigrations
+python manage.py migrate
+```
+
+### 6. 创建超级用户
+```bash
+python manage.py createsuperuser
+```
+
+### 7. 创建示例数据（可选）
+```bash
+python create_sample_data.py
+```
+
+### 8. 启动开发服务器
+```bash
+python manage.py runserver
+```
+
+### 9. 静态文件说明
+项目已配置本地静态文件：
+- **Tailwind CSS**: 本地构建版本 (`static/css/tailwind.output.css`)
+- **ECharts**: 本地版本 (`static/js/echarts.min.js`)，大小约 1MB
+- 无需依赖外部 CDN，提高加载速度
+
+### 10. 访问应用
+- 主页: http://localhost:8000/
+- 管理后台: http://localhost:8000/admin/
+- 单词管理: http://localhost:8000/vocabulary/
+- 听写练习: http://localhost:8000/dictation/
+- ECharts测试: http://localhost:8000/test-echarts/
+- 听写功能测试: http://localhost:8000/test-dictation/
+- 语音功能测试: http://localhost:8000/test-voice/
+- 听写隐藏功能测试: http://localhost:8000/test-dictation-hidden/
+
+## 使用指南
+
+### 单词管理
+1. 访问单词管理页面
+2. 点击"添加单词"按钮
+3. 填写单词信息（单词、音标、释义、例句、难度）
+4. 创建单词列表并添加单词
+
+### 听写练习
+1. 访问听写练习页面
+2. 选择要练习的单词列表
+3. 开始听写练习
+4. 输入听到的单词
+5. 查看结果和反馈
+
+### 学习进度
+1. 访问学习进度页面
+2. 查看总体学习统计
+3. 查看单词掌握程度分布
+4. 查看详细的学习记录
+
+## 项目结构
+
+```
+EWord/
+├── config/                 # Django项目配置
+│   ├── settings.py        # 项目设置
+│   ├── urls.py           # 主URL配置
+│   └── ...
+├── vocabulary/            # 单词管理应用
+│   ├── models.py         # 单词数据模型
+│   ├── views.py          # 视图函数
+│   ├── urls.py           # URL配置
+│   └── admin.py          # 管理界面配置
+├── dictation/            # 听写功能应用
+│   ├── models.py         # 听写数据模型
+│   ├── views.py          # 视图函数
+│   ├── urls.py           # URL配置
+│   └── admin.py          # 管理界面配置
+├── templates/            # HTML模板
+│   ├── base.html         # 基础模板
+│   ├── vocabulary/       # 单词管理模板
+│   └── dictation/        # 听写功能模板
+├── static/               # 静态文件
+├── manage.py            # Django管理脚本
+├── create_sample_data.py # 示例数据创建脚本
+└── read.me              # 项目文档
+```
+
+## 数据模型
+
+### 单词管理
+- **Word**: 单词基本信息
+- **WordList**: 单词列表
+- **WordListWord**: 单词列表关联
+
+### 听写功能
+- **DictationSession**: 听写会话
+- **DictationRecord**: 听写记录
+- **UserProgress**: 用户学习进度
+
+## 开发计划
+
+### 已完成功能
+- [x] 基础单词管理
+- [x] 听写练习功能
+- [x] 学习进度跟踪
+- [x] 管理后台
+- [x] 数据可视化
+
+### 计划功能
+- [ ] 语音播放功能
+- [ ] 单词发音练习
+- [ ] 复习提醒系统
+- [ ] 学习计划制定
+- [ ] 数据导入导出
+- [ ] 多用户支持
+- [ ] 移动端适配
+
+## 贡献指南
+
+1. Fork 项目
+2. 创建功能分支
+3. 提交更改
+4. 推送到分支
+5. 创建 Pull Request
+
+## 许可证
+
+MIT License
+
+## 联系方式
+
+如有问题或建议，请提交 Issue 或联系开发者。

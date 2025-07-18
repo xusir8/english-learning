@@ -1,0 +1,81 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold mb-4">复习计划仪表板</h1>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- 学习统计 -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">学习进度</h2>
+                <div class="space-y-2">
+                    <p>总单词数: {{ learning_stats.total_words }}</p>
+                    <p>已掌握: {{ learning_stats.mastered_words }}</p>
+                    <p>学习中: {{ learning_stats.in_progress }}</p>
+                </div>
+            </div>
+            
+            <!-- 今日任务 -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">今日待复习</h2>
+                <p class="text-2xl font-bold">{{ today_words|length }} 个单词</p>
+                {% if today_words %}
+                    <a href="{% url 'vocabulary:review_word' today_words.0.id %}" 
+                       class="mt-4 inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                        开始复习
+                    </a>
+                {% endif %}
+            </div>
+            
+            <!-- 活跃计划 -->
+            <div class="bg-white p-6 rounded-lg shadow">
+                <h2 class="text-xl font-semibold mb-4">活跃计划</h2>
+                <p class="text-2xl font-bold">{{ active_plans|length }} 个计划</p>
+                <a href="{% url 'vocabulary:create_review_plan' %}" 
+                   class="mt-4 inline-block bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                    创建新计划
+                </a>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 活跃计划列表 -->
+    <div class="bg-white p-6 rounded-lg shadow">
+        <h2 class="text-2xl font-bold mb-4">当前学习计划</h2>
+        {% if active_plans %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full">
+                    <thead>
+                        <tr class="bg-gray-100">
+                            <th class="px-6 py-3 text-left">词书</th>
+                            <th class="px-6 py-3 text-left">类型</th>
+                            <th class="px-6 py-3 text-left">开始时间</th>
+                            <th class="px-6 py-3 text-left">进度</th>
+                            <th class="px-6 py-3 text-left">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for plan in active_plans %}
+                        <tr class="border-b">
+                            <td class="px-6 py-4">{{ plan.word_list.name }}</td>
+                            <td class="px-6 py-4">{{ plan.get_plan_type_display }}</td>
+                            <td class="px-6 py-4">{{ plan.start_date|date:"Y-m-d" }}</td>
+                            <td class="px-6 py-4">
+                                {% with progress=plan.generate_review_schedule %}
+                                {{ progress.count }} 个单词
+                                {% endwith %}
+                            </td>
+                            <td class="px-6 py-4">
+                                <a href="#" class="text-blue-500 hover:text-blue-700">查看详情</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-gray-500">暂无活跃的学习计划</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %} 

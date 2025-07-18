@@ -1,0 +1,436 @@
+{% extends 'base.html' %}
+
+{% block title %}语音测试 - EWord{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto p-6">
+    <h1 class="text-3xl font-bold text-center mb-8">语音测试</h1>
+    
+    <div class="bg-white rounded-lg shadow-lg p-8">
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-4">选择发音引擎</h2>
+            <div class="flex justify-center mb-4">
+                <div class="inline-flex rounded-md shadow-sm" role="group">
+                    <button type="button" id="webSpeechBtn" onclick="setTtsEngine('webSpeech')"
+                            class="px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-700 rounded-l-lg hover:bg-blue-50 focus:z-10 focus:ring-2 focus:ring-blue-500 active-tts">
+                        浏览器发音
+                    </button>
+                    <button type="button" id="edgeTtsBtn" onclick="setTtsEngine('edgeTts')"
+                            class="px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-700 hover:bg-blue-50 focus:z-10 focus:ring-2 focus:ring-blue-500">
+                        Edge TTS
+                    </button>
+                    <button type="button" id="chatTtsBtn" onclick="setTtsEngine('chatTts')"
+                            class="px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-700 rounded-r-lg hover:bg-blue-50 focus:z-10 focus:ring-2 focus:ring-blue-500">
+                        Chat TTS
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-4">选择语音</h2>
+            <div class="flex justify-center">
+                <select id="voiceSelector" class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="en-US-female">美式英语 (女声)</option>
+                    <option value="en-US-male">美式英语 (男声)</option>
+                    <option value="en-GB-female">英式英语 (女声)</option>
+                    <option value="en-GB-male">英式英语 (男声)</option>
+                    <option value="zh-CN-female">中文 (女声)</option>
+                    <option value="zh-CN-male">中文 (男声)</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-4">调整语速</h2>
+            <div class="flex flex-col items-center">
+                <div class="w-full max-w-md flex items-center space-x-4">
+                    <span class="text-sm text-gray-600">慢</span>
+                    <input type="range" id="speedSlider" min="0.5" max="2" step="0.1" value="1.0" 
+                           class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <span class="text-sm text-gray-600">快</span>
+                </div>
+                <div class="mt-2">
+                    <span class="text-sm text-gray-600">当前语速: </span>
+                    <span id="speedValue" class="text-sm font-medium">1.0</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="mb-6">
+            <h2 class="text-xl font-semibold mb-4">输入文本</h2>
+            <textarea id="textInput" 
+                      class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      rows="4" placeholder="输入要朗读的文本...">Hello world! This is a test of the text-to-speech system.</textarea>
+        </div>
+        
+        <div class="flex justify-center">
+            <button onclick="playText()" 
+                    class="bg-blue-500 text-white px-8 py-3 rounded-lg font-semibold hover:bg-blue-600 transition">
+                播放文本
+            </button>
+        </div>
+        
+        <div class="mt-4 text-center">
+            <p id="playStatus" class="text-sm text-gray-600">准备就绪</p>
+        </div>
+    </div>
+    
+    <div class="mt-8 bg-white rounded-lg shadow-lg p-8">
+        <h2 class="text-xl font-semibold mb-4">测试单词</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <button onclick="playTestWord('apple')" class="bg-gray-100 hover:bg-gray-200 p-3 rounded-lg">apple</button>
+            <button onclick="playTestWord('banana')" class="bg-gray-100 hover:bg-gray-200 p-3 rounded-lg">banana</button>
+            <button onclick="playTestWord('computer')" class="bg-gray-100 hover:bg-gray-200 p-3 rounded-lg">computer</button>
+            <button onclick="playTestWord('dictionary')" class="bg-gray-100 hover:bg-gray-200 p-3 rounded-lg">dictionary</button>
+            <button onclick="playTestWord('elephant')" class="bg-gray-100 hover:bg-gray-200 p-3 rounded-lg">elephant</button>
+            <button onclick="playTestWord('fantastic')" class="bg-gray-100 hover:bg-gray-200 p-3 rounded-lg">fantastic</button>
+            <button onclick="playTestWord('gorgeous')" class="bg-gray-100 hover:bg-gray-200 p-3 rounded-lg">gorgeous</button>
+            <button onclick="playTestWord('happiness')" class="bg-gray-100 hover:bg-gray-200 p-3 rounded-lg">happiness</button>
+        </div>
+    </div>
+</div>
+
+<!-- 音频播放器 -->
+<audio id="audioPlayer" style="display: none;"></audio>
+
+<script>
+let ttsEngine = 'webSpeech'; // 默认使用Web Speech API
+let speechSynthesis = window.speechSynthesis;
+let currentUtterance = null;
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 从本地存储加载TTS引擎选择
+    const savedEngine = localStorage.getItem('ttsEngine') || 'webSpeech';
+    setTtsEngine(savedEngine);
+    
+    // 从本地存储加载语音选择
+    const savedVoice = localStorage.getItem('selectedVoice') || 'en-US-female';
+    document.getElementById('voiceSelector').value = savedVoice;
+    
+    // 从本地存储加载语速
+    const savedSpeed = localStorage.getItem('speechSpeed') || '1.0';
+    document.getElementById('speedSlider').value = savedSpeed;
+    document.getElementById('speedValue').textContent = savedSpeed;
+    
+    // 添加语速滑块的事件监听器
+    document.getElementById('speedSlider').addEventListener('input', function() {
+        const speed = this.value;
+        document.getElementById('speedValue').textContent = speed;
+        localStorage.setItem('speechSpeed', speed);
+    });
+    
+    // 检查语音合成支持
+    if (!speechSynthesis && ttsEngine === 'webSpeech') {
+        document.getElementById('playStatus').textContent = '您的浏览器不支持语音合成功能';
+        // 自动切换到Edge TTS
+        setTtsEngine('edgeTts');
+    }
+});
+
+// 设置TTS引擎
+function setTtsEngine(engine) {
+    ttsEngine = engine;
+    localStorage.setItem('ttsEngine', engine);
+    
+    // 更新UI
+    if (engine === 'webSpeech') {
+        document.getElementById('webSpeechBtn').classList.add('active-tts');
+        document.getElementById('edgeTtsBtn').classList.remove('active-tts');
+        document.getElementById('chatTtsBtn').classList.remove('active-tts'); // 移除Chat TTS的激活状态
+        document.getElementById('playStatus').textContent = '使用浏览器发音引擎';
+    } else if (engine === 'edgeTts') {
+        document.getElementById('webSpeechBtn').classList.remove('active-tts');
+        document.getElementById('edgeTtsBtn').classList.add('active-tts');
+        document.getElementById('chatTtsBtn').classList.remove('active-tts'); // 移除Chat TTS的激活状态
+        document.getElementById('playStatus').textContent = '使用Edge TTS发音引擎';
+    } else if (engine === 'chatTts') {
+        document.getElementById('webSpeechBtn').classList.remove('active-tts');
+        document.getElementById('edgeTtsBtn').classList.remove('active-tts');
+        document.getElementById('chatTtsBtn').classList.add('active-tts');
+        document.getElementById('playStatus').textContent = '使用Chat TTS发音引擎';
+    }
+}
+
+// 播放输入文本
+function playText() {
+    const text = document.getElementById('textInput').value.trim();
+    if (!text) {
+        document.getElementById('playStatus').textContent = '请输入要朗读的文本';
+        return;
+    }
+    
+    const selectedVoice = document.getElementById('voiceSelector').value;
+    localStorage.setItem('selectedVoice', selectedVoice);
+    
+    const speed = document.getElementById('speedSlider').value;
+    localStorage.setItem('speechSpeed', speed);
+    document.getElementById('speedValue').textContent = speed;
+    
+    if (ttsEngine === 'webSpeech') {
+        playWithWebSpeech(text, selectedVoice);
+    } else if (ttsEngine === 'edgeTts') {
+        playWithEdgeTts(text);
+    } else if (ttsEngine === 'chatTts') {
+        playWithChatTts(text);
+    }
+}
+
+// 播放测试单词
+function playTestWord(word) {
+    document.getElementById('textInput').value = word;
+    playText();
+}
+
+// 使用Web Speech API播放
+function playWithWebSpeech(text, voiceType) {
+    // 停止当前播放
+    if (speechSynthesis.speaking) {
+        speechSynthesis.cancel();
+    }
+    
+    // 创建新的语音合成
+    currentUtterance = new SpeechSynthesisUtterance(text);
+    
+    // 根据选择设置语言
+    if (voiceType.startsWith('en-US')) {
+        currentUtterance.lang = 'en-US';
+    } else if (voiceType.startsWith('en-GB')) {
+        currentUtterance.lang = 'en-GB';
+    } else if (voiceType.startsWith('zh-CN')) {
+        currentUtterance.lang = 'zh-CN';
+    }
+    
+    currentUtterance.rate = parseFloat(document.getElementById('speedSlider').value); // 使用滑块值设置语速
+    currentUtterance.pitch = 1.0;
+    currentUtterance.volume = 1.0;
+    
+    // 设置语音
+    const voices = speechSynthesis.getVoices();
+    let targetVoice;
+    
+    if (voiceType.includes('female')) {
+        targetVoice = voices.find(voice => 
+            voice.lang.startsWith(currentUtterance.lang) && 
+            (voice.name.includes('Female') || voice.name.includes('female'))
+        );
+    } else {
+        targetVoice = voices.find(voice => 
+            voice.lang.startsWith(currentUtterance.lang) && 
+            (voice.name.includes('Male') || voice.name.includes('male'))
+        );
+    }
+    
+    // 如果没找到特定性别的声音，就用任何匹配语言的声音
+    if (!targetVoice) {
+        targetVoice = voices.find(voice => voice.lang.startsWith(currentUtterance.lang));
+    }
+    
+    // 如果还是没找到，就用默认声音
+    if (targetVoice) {
+        currentUtterance.voice = targetVoice;
+    }
+    
+    // 播放状态更新
+    document.getElementById('playStatus').textContent = '正在播放...';
+    
+    // 播放事件
+    currentUtterance.onstart = function() {
+        document.getElementById('playStatus').textContent = '正在播放...';
+    };
+    
+    currentUtterance.onend = function() {
+        document.getElementById('playStatus').textContent = '播放完成';
+    };
+    
+    currentUtterance.onerror = function(event) {
+        console.error('语音播放错误:', event);
+        document.getElementById('playStatus').textContent = '播放失败，请重试';
+    };
+    
+    // 开始播放
+    speechSynthesis.speak(currentUtterance);
+}
+
+// 使用Edge TTS播放
+function playWithEdgeTts(text) {
+    const audioPlayer = document.getElementById('audioPlayer');
+    const voiceType = document.getElementById('voiceSelector').value;
+    const speed = document.getElementById('speedSlider').value;
+    
+    // 更新播放状态
+    document.getElementById('playStatus').textContent = '正在加载音频...';
+    
+    // 请求Edge TTS服务
+    fetch('/tts/speak/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            text: text,
+            voice: voiceType,
+            speed: speed
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            console.error('TTS响应错误:', response.status, response.statusText);
+            throw new Error(`网络响应不正常: ${response.status} ${response.statusText}`);
+        }
+        
+        // 检查Content-Type
+        const contentType = response.headers.get('Content-Type');
+        console.log('响应Content-Type:', contentType);
+        
+        // 如果是JSON，说明是错误信息
+        if (contentType && contentType.includes('application/json')) {
+            return response.json().then(data => {
+                throw new Error(`TTS服务错误: ${data.message || '未知错误'}`);
+            });
+        }
+        
+        return response.blob();
+    })
+    .then(blob => {
+        console.log('收到音频数据:', blob.type, blob.size, 'bytes');
+        
+        // 检查是否是音频类型
+        if (!blob.type.startsWith('audio/')) {
+            console.error('响应不是音频类型:', blob.type);
+            throw new Error(`响应不是音频类型: ${blob.type}`);
+        }
+        
+        const url = URL.createObjectURL(blob);
+        audioPlayer.src = url;
+        
+        audioPlayer.onloadeddata = function() {
+            document.getElementById('playStatus').textContent = '正在播放...';
+            audioPlayer.play().catch(error => {
+                console.error('播放音频失败:', error);
+                document.getElementById('playStatus').textContent = '播放失败，请重试';
+            });
+        };
+        
+        audioPlayer.onended = function() {
+            document.getElementById('playStatus').textContent = '播放完成';
+            URL.revokeObjectURL(url);
+        };
+        
+        audioPlayer.onerror = function(e) {
+            console.error('音频播放错误:', e);
+            document.getElementById('playStatus').textContent = '播放失败，请重试';
+            URL.revokeObjectURL(url);
+        };
+    })
+    .catch(error => {
+        console.error('获取音频失败:', error);
+        document.getElementById('playStatus').textContent = '获取音频失败: ' + error.message;
+    });
+}
+
+// 使用Chat TTS播放
+function playWithChatTts(text) {
+    const audioPlayer = document.getElementById('audioPlayer');
+    const voiceType = document.getElementById('voiceSelector').value;
+    const speed = document.getElementById('speedSlider').value;
+    
+    // 更新播放状态
+    document.getElementById('playStatus').textContent = '正在加载音频...';
+    
+    // 请求Chat TTS服务
+    fetch('/tts/speak/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            text: text,
+            voice: voiceType,
+            engine: 'chat-tts',  // 指定使用chat-tts引擎
+            speed: speed
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            console.error('TTS响应错误:', response.status, response.statusText);
+            throw new Error(`网络响应不正常: ${response.status} ${response.statusText}`);
+        }
+        
+        // 检查Content-Type
+        const contentType = response.headers.get('Content-Type');
+        console.log('响应Content-Type:', contentType);
+        
+        // 如果是JSON，说明是错误信息
+        if (contentType && contentType.includes('application/json')) {
+            return response.json().then(data => {
+                throw new Error(`TTS服务错误: ${data.message || '未知错误'}`);
+            });
+        }
+        
+        return response.blob();
+    })
+    .then(blob => {
+        console.log('收到音频数据:', blob.type, blob.size, 'bytes');
+        
+        // 检查是否是音频类型
+        if (!blob.type.startsWith('audio/')) {
+            console.error('响应不是音频类型:', blob.type);
+            throw new Error(`响应不是音频类型: ${blob.type}`);
+        }
+        
+        const url = URL.createObjectURL(blob);
+        audioPlayer.src = url;
+        
+        audioPlayer.onloadeddata = function() {
+            document.getElementById('playStatus').textContent = '正在播放...';
+            audioPlayer.play().catch(error => {
+                console.error('播放音频失败:', error);
+                document.getElementById('playStatus').textContent = '播放失败，请重试';
+            });
+        };
+        
+        audioPlayer.onended = function() {
+            document.getElementById('playStatus').textContent = '播放完成';
+            URL.revokeObjectURL(url);
+        };
+        
+        audioPlayer.onerror = function(e) {
+            console.error('音频播放错误:', e);
+            document.getElementById('playStatus').textContent = '播放失败，请重试';
+            URL.revokeObjectURL(url);
+        };
+    })
+    .catch(error => {
+        console.error('获取音频失败:', error);
+        document.getElementById('playStatus').textContent = '获取音频失败: ' + error.message;
+    });
+}
+
+// 获取CSRF Token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+<style>
+.active-tts {
+    background-color: #3b82f6;
+    color: white;
+}
+</style>
+{% endblock %} 

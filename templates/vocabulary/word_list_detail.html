@@ -1,0 +1,637 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ word_list.name }} - 单词书详情 - EWord (v2){% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- 页面标题 -->
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-4xl font-bold text-gray-900 mb-2">{{ word_list.name }}</h1>
+            <p class="text-lg text-gray-600">{{ word_list.description|default:"暂无描述" }}</p>
+        </div>
+        <div class="flex space-x-3">
+            <a href="{% url 'dictation:start_dictation' word_list.id %}" 
+               class="btn-primary text-white px-6 py-3 rounded-lg font-semibold">
+                开始听写
+            </a>
+            <a href="{% url 'vocabulary:review_dashboard' %}" 
+               class="bg-green-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-600 transition">
+                复习计划
+            </a>
+        </div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="flex justify-between items-center">
+        <div class="text-xl font-bold text-gray-900">
+            单词列表 ({{ words.count }})
+        </div>
+        <div class="flex space-x-3">
+            <button onclick="openAddWordModal()" 
+                    class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-600 transition">
+                添加单词
+            </button>
+            <button onclick="openImportModal()" 
+                    class="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-600 transition">
+                批量导入
+            </button>
+            <button onclick="openEditListModal()" 
+                    class="bg-gray-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-gray-600 transition">
+                编辑词书
+            </button>
+        </div>
+    </div>
+
+    <!-- 单词列表 -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        {% if words %}
+        <!-- 批量操作工具栏 -->
+        <div class="mb-4 flex justify-between items-center">
+            <div class="flex items-center space-x-4">
+                <label class="flex items-center">
+                    <input type="checkbox" id="selectAll" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" onchange="toggleSelectAll()">
+                    <span class="ml-2 text-sm text-gray-700">全选</span>
+                </label>
+                <span id="selectedCount" class="text-sm text-gray-500">已选择 0 个单词</span>
+            </div>
+            <div class="flex space-x-2">
+                <button id="batchDeleteBtn" onclick="batchDeleteWords()" disabled
+                        class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-600 transition disabled:opacity-50 disabled:bg-red-300 disabled:cursor-not-allowed">
+                    批量删除
+                </button>
+            </div>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            <input type="checkbox" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500" onchange="toggleSelectAllInTable(this)">
+                        </th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">序号</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">单词</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">音标</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">释义</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">难度</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for word in words %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <input type="checkbox" class="word-checkbox rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
+                                   value="{{ word.id }}" onchange="updateSelectedCount()">
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {{ forloop.counter }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ word.word }}</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            [{{ word.phonetic|default:"" }}]
+                        </td>
+                        <td class="px-6 py-4 text-sm text-gray-500">
+                            {{ word.translation }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <span class="px-2 py-1 text-xs rounded-full 
+                                {% if word.difficulty_level == 1 %}bg-green-100 text-green-800
+                                {% elif word.difficulty_level == 2 %}bg-yellow-100 text-yellow-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {{ word.get_difficulty_level_display }}
+                            </span>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm">
+                            <div class="flex space-x-2">
+                                <button onclick="editWord({{ word.id }})" class="text-blue-600 hover:text-blue-800">编辑</button>
+                                <button onclick="removeWord({{ word.id }})" class="text-red-600 hover:text-red-800">移除</button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <div class="text-gray-500 mb-4">该单词书暂无单词</div>
+            <button onclick="openAddWordModal()" 
+                    class="btn-primary text-white px-6 py-3 rounded-lg">
+                添加单词
+            </button>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 返回按钮 -->
+    <div class="flex justify-center">
+        <a href="{% url 'vocabulary:word_list' %}" 
+           class="bg-gray-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-600 transition">
+            返回词书列表
+        </a>
+    </div>
+</div>
+
+<!-- 添加单词模态框 -->
+<div id="addWordModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <h3 class="text-xl font-bold mb-4">添加单词到词书</h3>
+        <form id="addWordForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">单词 *</label>
+                <input type="text" name="word" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">音标</label>
+                <input type="text" name="phonetic" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">中文释义 *</label>
+                <textarea name="translation" required rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">例句</label>
+                <textarea name="example_sentence" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">难度等级</label>
+                <select name="difficulty_level" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="1">简单</option>
+                    <option value="2">中等</option>
+                    <option value="3">困难</option>
+                </select>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeAddWordModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">取消</button>
+                <button type="submit" class="btn-primary text-white px-4 py-2 rounded">添加</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 编辑单词模态框 -->
+<div id="editWordModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <h3 class="text-xl font-bold mb-4">编辑单词</h3>
+        <form id="editWordForm" class="space-y-4">
+            <input type="hidden" name="word_id" id="edit_word_id">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">单词 *</label>
+                <input type="text" name="word" id="edit_word" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">音标</label>
+                <input type="text" name="phonetic" id="edit_phonetic" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">中文释义 *</label>
+                <textarea name="translation" id="edit_translation" required rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">例句</label>
+                <textarea name="example_sentence" id="edit_example" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">难度等级</label>
+                <select name="difficulty_level" id="edit_difficulty" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="1">简单</option>
+                    <option value="2">中等</option>
+                    <option value="3">困难</option>
+                </select>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeEditWordModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">取消</button>
+                <button type="submit" class="btn-primary text-white px-4 py-2 rounded">保存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 批量导入模态框 -->
+<div id="importModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-2xl mx-4">
+        <h3 class="text-xl font-bold mb-4">批量导入单词</h3>
+        
+        <div class="mb-6">
+            <p class="text-gray-700 mb-2">请按照以下格式输入单词数据，每行一个单词：</p>
+            <p class="bg-gray-100 p-3 rounded text-sm font-mono">单词,音标,释义,例句,难度(1-3)</p>
+            <p class="text-gray-600 text-xs mt-1">例如：apple,[æpl],苹果,This is a red apple.,1</p>
+            <div class="text-gray-600 text-xs mt-2 space-y-1">
+                <p>• 支持多种格式：</p>
+                <p>&nbsp;&nbsp;- 单词,释义 （例如：apple,苹果）</p>
+                <p>&nbsp;&nbsp;- 单词,音标,释义 （例如：apple,[æpl],苹果）</p>
+                <p>&nbsp;&nbsp;- 完整格式 （例如：apple,[æpl],苹果,This is a red apple.,1）</p>
+                <p>• 音标、例句和难度可以省略，默认难度为2（中等）</p>
+                <p>• 如果没有释义，将使用单词本身作为释义</p>
+            </div>
+        </div>
+        
+        <form id="importForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">单词数据 *</label>
+                <textarea name="word_data" rows="10" required 
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                          placeholder="apple,[æpl],苹果,This is a red apple.,1&#10;banana,[bəˈnɑːnə],香蕉,I like bananas.,1"></textarea>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeImportModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">取消</button>
+                <button type="submit" class="btn-primary text-white px-4 py-2 rounded">导入</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 编辑词书模态框 -->
+<div id="editListModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <h3 class="text-xl font-bold mb-4">编辑词书</h3>
+        <form id="editListForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">词书名称 *</label>
+                <input type="text" name="name" id="edit_list_name" value="{{ word_list.name }}" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+                <textarea name="description" id="edit_list_description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">{{ word_list.description }}</textarea>
+            </div>
+            <div class="flex justify-between">
+                <button type="button" onclick="deleteWordList()" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">删除词书</button>
+                <div class="flex space-x-3">
+                    <button type="button" onclick="closeEditListModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">取消</button>
+                    <button type="submit" class="btn-primary text-white px-4 py-2 rounded">保存</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 打开/关闭添加单词模态框
+function openAddWordModal() {
+    document.getElementById('addWordModal').classList.remove('hidden');
+    document.getElementById('addWordModal').classList.add('flex');
+}
+
+function closeAddWordModal() {
+    document.getElementById('addWordModal').classList.add('hidden');
+    document.getElementById('addWordModal').classList.remove('flex');
+}
+
+// 打开/关闭编辑单词模态框
+function openEditWordModal() {
+    document.getElementById('editWordModal').classList.remove('hidden');
+    document.getElementById('editWordModal').classList.add('flex');
+}
+
+function closeEditWordModal() {
+    document.getElementById('editWordModal').classList.add('hidden');
+    document.getElementById('editWordModal').classList.remove('flex');
+}
+
+// 打开/关闭批量导入模态框
+function openImportModal() {
+    document.getElementById('importModal').classList.remove('hidden');
+    document.getElementById('importModal').classList.add('flex');
+}
+
+function closeImportModal() {
+    document.getElementById('importModal').classList.add('hidden');
+    document.getElementById('importModal').classList.remove('flex');
+}
+
+// 打开/关闭编辑词书模态框
+function openEditListModal() {
+    document.getElementById('editListModal').classList.remove('hidden');
+    document.getElementById('editListModal').classList.add('flex');
+}
+
+function closeEditListModal() {
+    document.getElementById('editListModal').classList.add('hidden');
+    document.getElementById('editListModal').classList.remove('flex');
+}
+
+// 添加单词到词书
+document.getElementById('addWordForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const data = {
+        word: formData.get('word'),
+        phonetic: formData.get('phonetic'),
+        translation: formData.get('translation'),
+        example_sentence: formData.get('example_sentence'),
+        difficulty_level: parseInt(formData.get('difficulty_level')),
+        list_id: {{ word_list.id }}
+    };
+    
+    try {
+        const response = await fetch('{% url "vocabulary:add_word_to_list" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('单词添加成功！');
+            location.reload();
+        } else {
+            alert('添加失败：' + result.message);
+        }
+    } catch (error) {
+        alert('网络错误，请重试');
+    }
+});
+
+// 编辑单词
+async function editWord(wordId) {
+    try {
+        const response = await fetch(`/vocabulary/api/word/${wordId}/`);
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('edit_word_id').value = data.word.id;
+            document.getElementById('edit_word').value = data.word.word;
+            document.getElementById('edit_phonetic').value = data.word.phonetic || '';
+            document.getElementById('edit_translation').value = data.word.translation;
+            document.getElementById('edit_example').value = data.word.example_sentence || '';
+            document.getElementById('edit_difficulty').value = data.word.difficulty_level;
+            
+            openEditWordModal();
+        } else {
+            alert('获取单词信息失败：' + data.message);
+        }
+    } catch (error) {
+        alert('网络错误，请重试');
+    }
+}
+
+// 提交编辑单词表单
+document.getElementById('editWordForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const wordId = formData.get('word_id');
+    const data = {
+        word: formData.get('word'),
+        phonetic: formData.get('phonetic'),
+        translation: formData.get('translation'),
+        example_sentence: formData.get('example_sentence'),
+        difficulty_level: parseInt(formData.get('difficulty_level'))
+    };
+    
+    try {
+        const response = await fetch(`/vocabulary/api/word/${wordId}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('单词更新成功！');
+            location.reload();
+        } else {
+            alert('更新失败：' + result.message);
+        }
+    } catch (error) {
+        alert('网络错误，请重试');
+    }
+});
+
+// 从词书中移除单词
+async function removeWord(wordId) {
+    if (!confirm('确定要从词书中移除此单词吗？')) return;
+    
+    try {
+        const response = await fetch(`/vocabulary/api/word-list/{{ word_list.id }}/remove-word/${wordId}/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('单词已从词书中移除！');
+            location.reload();
+        } else {
+            alert('移除失败：' + result.message);
+        }
+    } catch (error) {
+        alert('网络错误，请重试');
+    }
+}
+
+// 批量导入单词
+document.getElementById('importForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const data = {
+        word_data: formData.get('word_data'),
+        list_id: {{ word_list.id }}
+    };
+    
+    try {
+        const response = await fetch('{% url "vocabulary:import_words" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            let message = result.message;
+            
+            // 如果有失败的单词，显示详细信息
+            if (result.failed_words && result.failed_words.length > 0) {
+                message += '\n\n失败的单词详情：\n';
+                result.failed_words.forEach(failed => {
+                    message += `第${failed.line}行: "${failed.content}" - ${failed.reason}\n`;
+                });
+            }
+            
+            alert(message);
+            location.reload();
+        } else {
+            alert('导入失败：' + result.message);
+        }
+    } catch (error) {
+        alert('网络错误，请重试');
+    }
+});
+
+// 编辑词书
+document.getElementById('editListForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const data = {
+        name: formData.get('name'),
+        description: formData.get('description')
+    };
+    
+    try {
+        const response = await fetch(`/vocabulary/api/word-list/{{ word_list.id }}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('词书更新成功！');
+            location.reload();
+        } else {
+            alert('更新失败：' + result.message);
+        }
+    } catch (error) {
+        alert('网络错误，请重试');
+    }
+});
+
+// 删除词书
+async function deleteWordList() {
+    if (!confirm('确定要删除此词书吗？此操作不可恢复！')) return;
+    
+    try {
+        const response = await fetch(`/vocabulary/api/word-list/{{ word_list.id }}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('词书已删除！');
+            window.location.href = '{% url "vocabulary:word_list" %}';
+        } else {
+            alert('删除失败：' + result.message);
+        }
+    } catch (error) {
+        alert('网络错误，请重试');
+    }
+}
+
+// 获取CSRF Token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// 批量删除相关函数
+function toggleSelectAll() {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const wordCheckboxes = document.querySelectorAll('.word-checkbox');
+    
+    wordCheckboxes.forEach(checkbox => {
+        checkbox.checked = selectAllCheckbox.checked;
+    });
+    
+    updateSelectedCount();
+}
+
+function toggleSelectAllInTable(checkbox) {
+    const selectAllCheckbox = document.getElementById('selectAll');
+    const wordCheckboxes = document.querySelectorAll('.word-checkbox');
+    
+    wordCheckboxes.forEach(wordCheckbox => {
+        wordCheckbox.checked = checkbox.checked;
+    });
+    
+    selectAllCheckbox.checked = checkbox.checked;
+    updateSelectedCount();
+}
+
+function updateSelectedCount() {
+    const selectedCheckboxes = document.querySelectorAll('.word-checkbox:checked');
+    const count = selectedCheckboxes.length;
+    
+    document.getElementById('selectedCount').textContent = `已选择 ${count} 个单词`;
+    
+    const batchDeleteBtn = document.getElementById('batchDeleteBtn');
+    const selectAllCheckbox = document.getElementById('selectAll');
+    
+    // 更新批量删除按钮状态
+    batchDeleteBtn.disabled = count === 0;
+    
+    // 更新全选复选框状态
+    const allCheckboxes = document.querySelectorAll('.word-checkbox');
+    if (count === 0) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = false;
+    } else if (count === allCheckboxes.length) {
+        selectAllCheckbox.indeterminate = false;
+        selectAllCheckbox.checked = true;
+    } else {
+        selectAllCheckbox.indeterminate = true;
+        selectAllCheckbox.checked = false;
+    }
+}
+
+async function batchDeleteWords() {
+    const selectedCheckboxes = document.querySelectorAll('.word-checkbox:checked');
+    const selectedWordIds = Array.from(selectedCheckboxes).map(checkbox => parseInt(checkbox.value));
+    
+    if (selectedWordIds.length === 0) {
+        alert('请选择要删除的单词');
+        return;
+    }
+    
+    if (!confirm(`确定要从词书中删除选中的 ${selectedWordIds.length} 个单词吗？`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('{% url "vocabulary:batch_remove_words" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({
+                list_id: {{ word_list.id }},
+                word_ids: selectedWordIds
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message);
+            location.reload();
+        } else {
+            alert('删除失败：' + result.message);
+        }
+    } catch (error) {
+        alert('网络错误，请重试');
+    }
+}
+</script>
+{% endblock %} 

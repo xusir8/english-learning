@@ -1,0 +1,393 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mx-auto px-4 py-8">
+    <div class="max-w-3xl mx-auto">
+        <div class="bg-white p-8 rounded-lg shadow">
+            <!-- 进度指示器 -->
+            <div class="mb-8">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-sm text-gray-500">掌握程度</span>
+                    <span class="text-sm font-medium">{{ record.mastery_level }}%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div class="bg-blue-500 h-2 rounded-full" style="width: {{ record.mastery_level }}%;"></div>
+                </div>
+            </div>
+            
+            <!-- 单词信息 -->
+            <div class="text-center mb-8">
+                <h2 class="text-4xl font-bold mb-4">{{ record.word.word }}</h2>
+                <p class="text-xl text-gray-600 mb-4">[{{ record.word.phonetic }}]</p>
+                <p class="text-lg mb-6">{{ record.word.definition }}</p>
+                <p class="text-gray-600 italic">{{ record.word.example }}</p>
+            </div>
+            
+            <!-- 复习记录 -->
+            <div class="mb-8">
+                <p class="text-sm text-gray-500">
+                    首次学习: {{ record.first_learn_date|date:"Y-m-d" }} |
+                    复习次数: {{ record.review_count }} |
+                    下次复习: {{ record.next_review_date|date:"Y-m-d" }}
+                </p>
+            </div>
+            
+            <!-- 操作按钮 -->
+            <div class="flex justify-center space-x-4">
+                <form method="post" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="result" value="correct">
+                    <button type="submit" 
+                            class="bg-green-500 text-white px-8 py-3 rounded-lg hover:bg-green-600">
+                        记得 ✓
+                    </button>
+                </form>
+                
+                <form method="post" class="inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="result" value="incorrect">
+                    <button type="submit"
+                            class="bg-red-500 text-white px-8 py-3 rounded-lg hover:bg-red-600">
+                        不记得 ✗
+                    </button>
+                </form>
+            </div>
+            
+            <!-- 发音引擎选择 -->
+            <div class="flex justify-center mt-6 mb-4">
+                <div class="inline-flex rounded-md shadow-sm" role="group">
+                    <button type="button" id="webSpeechBtn" onclick="setTtsEngine('webSpeech')"
+                            class="px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-700 rounded-l-lg hover:bg-blue-50 focus:z-10 focus:ring-2 focus:ring-blue-500 active-tts">
+                        浏览器发音
+                    </button>
+                    <button type="button" id="edgeTtsBtn" onclick="setTtsEngine('edgeTts')"
+                            class="px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-700 hover:bg-blue-50 focus:z-10 focus:ring-2 focus:ring-blue-500">
+                        Edge TTS
+                    </button>
+                    <button type="button" id="chatTtsBtn" onclick="setTtsEngine('chatTts')"
+                            class="px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-700 rounded-r-lg hover:bg-blue-50 focus:z-10 focus:ring-2 focus:ring-blue-500">
+                        Chat TTS
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 语音选项 -->
+            <div id="voiceOptions" class="text-center mb-4">
+                <select id="voiceSelector" class="px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="en-US-female">美式英语 (女声)</option>
+                    <option value="en-US-male">美式英语 (男声)</option>
+                    <option value="en-GB-female">英式英语 (女声)</option>
+                    <option value="en-GB-male">英式英语 (男声)</option>
+                </select>
+            </div>
+            
+            <!-- 语速调节 -->
+            <div class="text-center mb-4">
+                <div class="flex items-center justify-center space-x-2">
+                    <span class="text-sm text-gray-600">慢</span>
+                    <input type="range" id="speedSlider" min="0.5" max="2" step="0.1" value="1.0" 
+                           class="w-32 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <span class="text-sm text-gray-600">快</span>
+                    <span class="text-sm text-gray-600 ml-2">(<span id="speedValue">1.0</span>)</span>
+                </div>
+            </div>
+            
+            <!-- 语音播放按钮 -->
+            <div class="text-center mt-4">
+                <button onclick="playAudio('{{ record.word.word }}')"
+                        class="text-blue-500 hover:text-blue-700">
+                    <svg class="w-8 h-8 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M6.5 8.866a4 4 0 110 6.268M12 6v12"/>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        
+        <!-- 返回按钮 -->
+        <div class="text-center mt-6">
+            <a href="{% url 'vocabulary:review_dashboard' %}" 
+               class="text-gray-500 hover:text-gray-700">
+                返回仪表板
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- 音频播放器 -->
+<audio id="audioPlayer" style="display: none;"></audio>
+
+<script>
+let ttsEngine = 'webSpeech'; // 默认使用Web Speech API
+let speechSynthesis = window.speechSynthesis;
+
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 从本地存储加载TTS引擎选择
+    const savedEngine = localStorage.getItem('ttsEngine') || 'webSpeech';
+    setTtsEngine(savedEngine);
+    
+    // 从本地存储加载语音选择
+    const savedVoice = localStorage.getItem('selectedVoice') || 'en-US-female';
+    document.getElementById('voiceSelector').value = savedVoice;
+    
+    // 从本地存储加载语速
+    const savedSpeed = localStorage.getItem('speechSpeed') || '1.0';
+    document.getElementById('speedSlider').value = savedSpeed;
+    document.getElementById('speedValue').textContent = savedSpeed;
+    
+    // 添加语速滑块的事件监听器
+    document.getElementById('speedSlider').addEventListener('input', function() {
+        const speed = this.value;
+        document.getElementById('speedValue').textContent = speed;
+        localStorage.setItem('speechSpeed', speed);
+    });
+    
+    // 检查语音合成支持
+    if (!speechSynthesis && ttsEngine === 'webSpeech') {
+        // 自动切换到Edge TTS
+        setTtsEngine('edgeTts');
+    }
+});
+
+// 设置TTS引擎
+function setTtsEngine(engine) {
+    ttsEngine = engine;
+    localStorage.setItem('ttsEngine', engine);
+    
+    // 更新UI
+    if (engine === 'webSpeech') {
+        document.getElementById('webSpeechBtn').classList.add('active-tts');
+        document.getElementById('edgeTtsBtn').classList.remove('active-tts');
+        document.getElementById('chatTtsBtn').classList.remove('active-tts');
+    } else if (engine === 'edgeTts') {
+        document.getElementById('webSpeechBtn').classList.remove('active-tts');
+        document.getElementById('edgeTtsBtn').classList.add('active-tts');
+        document.getElementById('chatTtsBtn').classList.remove('active-tts');
+    } else if (engine === 'chatTts') {
+        document.getElementById('webSpeechBtn').classList.remove('active-tts');
+        document.getElementById('edgeTtsBtn').classList.remove('active-tts');
+        document.getElementById('chatTtsBtn').classList.add('active-tts');
+    }
+}
+
+function playAudio(word) {
+    const selectedVoice = document.getElementById('voiceSelector').value;
+    const selectedSpeed = document.getElementById('speedSlider').value;
+    localStorage.setItem('selectedVoice', selectedVoice);
+    localStorage.setItem('speechSpeed', selectedSpeed);
+    
+    if (ttsEngine === 'webSpeech') {
+        playWithWebSpeech(word, selectedVoice, selectedSpeed);
+    } else if (ttsEngine === 'edgeTts') {
+        playWithEdgeTts(word, selectedVoice, selectedSpeed);
+    } else if (ttsEngine === 'chatTts') {
+        playWithChatTts(word, selectedVoice, selectedSpeed);
+    }
+}
+
+// 使用Web Speech API播放
+function playWithWebSpeech(word, voiceType, speed) {
+    const utterance = new SpeechSynthesisUtterance(word);
+    
+    // 根据选择设置语言
+    if (voiceType.startsWith('en-US')) {
+    utterance.lang = 'en-US';
+    } else if (voiceType.startsWith('en-GB')) {
+        utterance.lang = 'en-GB';
+    } else if (voiceType.startsWith('zh-CN')) {
+        utterance.lang = 'zh-CN';
+    }
+    
+    // 设置语音
+    const voices = speechSynthesis.getVoices();
+    let targetVoice;
+    
+    if (voiceType.includes('female')) {
+        targetVoice = voices.find(voice => 
+            voice.lang.startsWith(utterance.lang) && 
+            (voice.name.includes('Female') || voice.name.includes('female'))
+        );
+    } else {
+        targetVoice = voices.find(voice => 
+            voice.lang.startsWith(utterance.lang) && 
+            (voice.name.includes('Male') || voice.name.includes('male'))
+        );
+    }
+    
+    // 如果没找到特定性别的声音，就用任何匹配语言的声音
+    if (!targetVoice) {
+        targetVoice = voices.find(voice => voice.lang.startsWith(utterance.lang));
+    }
+    
+    // 如果还是没找到，就用默认声音
+    if (targetVoice) {
+        utterance.voice = targetVoice;
+    }
+
+    // 设置语速
+    utterance.pitch = 1; // 默认音高
+    utterance.rate = parseFloat(speed);
+    
+    speechSynthesis.speak(utterance);
+}
+
+// 使用Edge TTS播放
+function playWithEdgeTts(word, voiceType, speed) {
+    const audioPlayer = document.getElementById('audioPlayer');
+    
+    // 停止当前播放
+    if (audioPlayer) {
+        audioPlayer.pause();
+        audioPlayer.currentTime = 0;
+    }
+    
+    // 请求Edge TTS服务
+    fetch('/tts/speak/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            text: word,
+            voice: voiceType,
+            speed: parseFloat(speed) // 传递语速
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            console.error('TTS响应错误:', response.status, response.statusText);
+            throw new Error(`网络响应不正常: ${response.status} ${response.statusText}`);
+        }
+        
+        // 检查Content-Type
+        const contentType = response.headers.get('Content-Type');
+        console.log('响应Content-Type:', contentType);
+        
+        // 如果是JSON，说明是错误信息
+        if (contentType && contentType.includes('application/json')) {
+            return response.json().then(data => {
+                throw new Error(`TTS服务错误: ${data.message || '未知错误'}`);
+            });
+        }
+        
+        return response.blob();
+    })
+    .then(blob => {
+        console.log('收到音频数据:', blob.type, blob.size, 'bytes');
+        
+        // 检查是否是音频类型
+        if (!blob.type.startsWith('audio/')) {
+            console.error('响应不是音频类型:', blob.type);
+            throw new Error(`响应不是音频类型: ${blob.type}`);
+        }
+        
+        const url = URL.createObjectURL(blob);
+        audioPlayer.src = url;
+        audioPlayer.play().catch(error => {
+            console.error('播放音频失败:', error);
+        });
+        
+        // 播放结束后释放资源
+        audioPlayer.onended = function() {
+            URL.revokeObjectURL(url);
+        };
+    })
+    .catch(error => {
+        console.error('获取音频失败:', error);
+    });
+}
+
+// 使用Chat TTS播放
+function playWithChatTts(word, voiceType, speed) {
+    const audioPlayer = document.getElementById('audioPlayer');
+    
+    // 停止当前播放
+    if (audioPlayer) {
+        audioPlayer.pause();
+        audioPlayer.currentTime = 0;
+    }
+    
+    // 请求Chat TTS服务
+    fetch('/tts/speak/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            text: word,
+            voice: voiceType,
+            engine: 'chat-tts',  // 指定使用chat-tts引擎
+            speed: parseFloat(speed) // 传递语速
+        })
+    })
+    .then(response => {
+        if (!response.ok) {
+            console.error('TTS响应错误:', response.status, response.statusText);
+            throw new Error(`网络响应不正常: ${response.status} ${response.statusText}`);
+        }
+        
+        // 检查Content-Type
+        const contentType = response.headers.get('Content-Type');
+        console.log('响应Content-Type:', contentType);
+        
+        // 如果是JSON，说明是错误信息
+        if (contentType && contentType.includes('application/json')) {
+            return response.json().then(data => {
+                throw new Error(`TTS服务错误: ${data.message || '未知错误'}`);
+            });
+        }
+        
+        return response.blob();
+    })
+    .then(blob => {
+        console.log('收到音频数据:', blob.type, blob.size, 'bytes');
+        
+        // 检查是否是音频类型
+        if (!blob.type.startsWith('audio/')) {
+            console.error('响应不是音频类型:', blob.type);
+            throw new Error(`响应不是音频类型: ${blob.type}`);
+        }
+        
+        const url = URL.createObjectURL(blob);
+        audioPlayer.src = url;
+        audioPlayer.play().catch(error => {
+            console.error('播放音频失败:', error);
+        });
+        
+        // 播放结束后释放资源
+        audioPlayer.onended = function() {
+            URL.revokeObjectURL(url);
+        };
+    })
+    .catch(error => {
+        console.error('获取音频失败:', error);
+    });
+}
+
+// 获取CSRF Token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+<style>
+.active-tts {
+    background-color: #3b82f6;
+    color: white;
+}
+</style>
+{% endblock %} 

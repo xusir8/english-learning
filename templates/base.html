@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}EWord 背单词软件{% endblock %}</title>
+    {% load static %}
+    <link href="{% static 'css/tailwind.output.css' %}" rel="stylesheet">
+    <script src="{% static 'js/echarts.min.js' %}"></script>
+    <style>
+        .gradient-bg {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .card-shadow {
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+    </style>
+    {% block extra_css %}{% endblock %}
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- 导航栏 -->
+    <nav class="gradient-bg text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="{% url 'home' %}" class="text-xl font-bold">EWord</a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="{% url 'vocabulary:word_list' %}" class="hover:text-gray-200 transition">单词与词书</a>
+                    <a href="{% url 'dictation:home' %}" class="hover:text-gray-200 transition">听写练习</a>
+                    <a href="{% url 'dictation:progress' %}" class="hover:text-gray-200 transition">学习进度</a>
+                    <a href="{% url 'admin:index' %}" class="hover:text-gray-200 transition">管理后台</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 主要内容 -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- 消息区域 -->
+        {% if messages %}
+        <div class="mb-6">
+            {% for message in messages %}
+            <div class="p-4 mb-3 rounded-lg {% if message.tags == 'error' %}bg-red-100 text-red-800{% elif message.tags == 'success' %}bg-green-100 text-green-800{% elif message.tags == 'warning' %}bg-yellow-100 text-yellow-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                {{ message }}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- 页脚 -->
+    <footer class="bg-gray-800 text-white py-8 mt-16">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+            <p>&copy; 2024 EWord 背单词软件. 让学习更高效.</p>
+        </div>
+    </footer>
+
+    {% block extra_js %}{% endblock %}
+</body>
+</html> 

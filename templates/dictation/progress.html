@@ -1,0 +1,379 @@
+{% extends 'base.html' %}
+
+{% block title %}学习进度 - EWord{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto space-y-8">
+    <!-- 页面标题 -->
+    <div class="text-center">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">学习进度</h1>
+        <p class="text-lg text-gray-600">跟踪您的单词学习情况和复习计划</p>
+    </div>
+
+    <!-- 学习概览 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+            <div class="text-3xl font-bold text-blue-600 mb-2">{{ learning_records.count }}</div>
+            <div class="text-gray-600">学习中的单词</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+            <div class="text-3xl font-bold text-green-600 mb-2">{{ mastery_groups.已掌握|default:0 }}</div>
+            <div class="text-gray-600">已掌握单词</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+            <div class="text-3xl font-bold text-purple-600 mb-2">{{ today_reviews.count }}</div>
+            <div class="text-gray-600">今日待复习</div>
+        </div>
+    </div>
+
+    <!-- 图表区域 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <!-- 掌握程度分布 -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">掌握程度分布</h2>
+            <div id="masteryChart" style="height: 300px;"></div>
+        </div>
+        
+        <!-- 学习趋势 -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-xl font-bold text-gray-900 mb-4">学习趋势</h2>
+            <div id="trendChart" style="height: 300px;"></div>
+        </div>
+    </div>
+
+    <!-- 今日待复习 -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">今日待复习 ({{ today_reviews.count }})</h2>
+        {% if today_reviews %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">单词</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">释义</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">复习次数</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">掌握程度</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for record in today_reviews %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="text-sm font-medium text-gray-900">{{ record.word.word }}</div>
+                            <div class="text-xs text-gray-500">[{{ record.word.phonetic|default:"" }}]</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ record.word.translation }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ record.review_count }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <div class="w-full bg-gray-200 rounded-full h-2">
+                                <div class="bg-green-500 h-2 rounded-full" style="width: '{{ record.mastery_level|floatformat:0 }}%';"></div>
+                            </div>
+                            <div class="text-xs text-gray-500 mt-1">{{ record.mastery_level }}%</div>
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <a href="{% url 'vocabulary:review_word' record.id %}" 
+                               class="text-blue-600 hover:text-blue-800 text-sm">复习</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-gray-500">
+            今天没有需要复习的单词
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 活跃复习计划 -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold text-gray-900">活跃复习计划</h2>
+            <a href="{% url 'vocabulary:create_review_plan' %}" 
+               class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-600 transition">
+                创建新计划
+            </a>
+        </div>
+        
+        {% if active_plans %}
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">单词书</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">计划类型</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">开始时间</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">单词数量</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">操作</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for plan in active_plans %}
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                            {{ plan.word_list.name }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ plan.get_plan_type_display }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {{ plan.start_date|date:"Y-m-d" }}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {% with schedule=plan.generate_review_schedule %}
+                            {{ schedule.count }} 个单词
+                            {% endwith %}
+                        </td>
+                        <td class="px-6 py-4 whitespace-nowrap">
+                            <a href="{% url 'vocabulary:review_dashboard' %}" 
+                               class="text-blue-600 hover:text-blue-800 text-sm">查看详情</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-gray-500">
+            暂无活跃的复习计划
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 艾宾浩斯遗忘曲线 -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-4">艾宾浩斯遗忘曲线</h2>
+        <div class="mb-6">
+            <div id="forgettingCurveChart" style="height: 400px;"></div>
+        </div>
+        <div class="text-sm text-gray-600">
+            <p>艾宾浩斯遗忘曲线描述了人类大脑对新知识的遗忘规律：</p>
+            <ul class="list-disc list-inside mt-2 space-y-1">
+                <li>学习后20分钟，记忆保留率为58.2%</li>
+                <li>学习后1小时，记忆保留率为44.2%</li>
+                <li>学习后1天，记忆保留率为33.7%</li>
+                <li>学习后2天，记忆保留率为27.8%</li>
+                <li>学习后6天，记忆保留率为25.4%</li>
+                <li>学习后31天，记忆保留率为21.1%</li>
+            </ul>
+            <p class="mt-3">通过科学的间隔重复，可以显著提高记忆效果。</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 先定义数据变量
+const masteryGroupsData = JSON.parse('{{ mastery_chart_data|escapejs }}');
+const trendChartData = JSON.parse('{{ chart_data|escapejs }}');
+
+document.addEventListener('DOMContentLoaded', function() {
+    // 掌握程度分布图
+    const masteryChart = echarts.init(document.getElementById('masteryChart'));
+    masteryChart.setOption({
+        tooltip: {
+            trigger: 'item',
+            formatter: '{a} <br/>{b}: {c} ({d}%)'
+        },
+        legend: {
+            orient: 'vertical',
+            left: 'left',
+            data: ['已掌握', '学习中', '需加强']
+        },
+        series: [
+            {
+                name: '掌握程度',
+                type: 'pie',
+                radius: '70%',
+                center: ['60%', '50%'],
+                data: masteryGroupsData.map(function(item) {
+                    return {
+                        value: item.value,
+                        name: item.name,
+                        itemStyle: {color: item.color}
+                    };
+                }),
+                emphasis: {
+                    itemStyle: {
+                        shadowBlur: 10,
+                        shadowOffsetX: 0,
+                        shadowColor: 'rgba(0, 0, 0, 0.5)'
+                    }
+                }
+            }
+        ]
+    });
+    
+    // 学习趋势图
+    var trendChart = echarts.init(document.getElementById('trendChart'));
+    trendChart.setOption({
+        tooltip: {
+            trigger: 'axis',
+            axisPointer: {
+                type: 'shadow'
+            }
+        },
+        legend: {
+            data: ['单词数量', '正确率']
+        },
+        xAxis: {
+            type: 'category',
+            data: trendChartData.dates
+        },
+        yAxis: [
+            {
+                type: 'value',
+                name: '单词数量',
+                position: 'left'
+            },
+            {
+                type: 'value',
+                name: '正确率(%)',
+                position: 'right',
+                min: 0,
+                max: 100
+            }
+        ],
+        series: [
+            {
+                name: '单词数量',
+                type: 'bar',
+                data: trendChartData.count
+            },
+            {
+                name: '正确率',
+                type: 'line',
+                yAxisIndex: 1,
+                data: trendChartData.accuracy
+            }
+        ]
+    });
+    
+    // 艾宾浩斯遗忘曲线图
+    var forgettingCurveChart = echarts.init(document.getElementById('forgettingCurveChart'));
+    var hours = [0, 1, 6, 24, 48, 144, 744];
+    var retention = [100, 58.2, 44.2, 33.7, 27.8, 25.4, 21.1];
+    var reviewPoints = [
+        {name: '首次学习', value: 100, xAxis: 0, yAxis: 100},
+        {name: '第1次复习', value: 80, xAxis: 24, yAxis: 80},
+        {name: '第2次复习', value: 85, xAxis: 72, yAxis: 85},
+        {name: '第3次复习', value: 90, xAxis: 168, yAxis: 90},
+        {name: '第4次复习', value: 95, xAxis: 336, yAxis: 95},
+        {name: '第5次复习', value: 98, xAxis: 744, yAxis: 98}
+    ];
+    
+    forgettingCurveChart.setOption({
+        tooltip: {
+            trigger: 'axis',
+            formatter: function(params) {
+                var data = params[0];
+                if (data.seriesIndex === 0) {
+                    return '时间: ' + data.name + '小时<br/>记忆保留率: ' + data.value + '%';
+                } else {
+                    return data.data.name + '<br/>记忆保留率: ' + data.data.value + '%';
+                }
+            }
+        },
+        legend: {
+            data: ['遗忘曲线', '复习点']
+        },
+        xAxis: {
+            type: 'log',
+            name: '时间(小时)',
+            nameLocation: 'middle',
+            nameGap: 30,
+            min: 0.5,
+            max: 1000,
+            axisLabel: {
+                formatter: function(value) {
+                    if (value === 24) return '1天';
+                    if (value === 168) return '1周';
+                    if (value === 744) return '1月';
+                    return value;
+                }
+            }
+        },
+        yAxis: {
+            type: 'value',
+            name: '记忆保留率(%)',
+            min: 0,
+            max: 100
+        },
+        series: [
+            {
+                name: '遗忘曲线',
+                type: 'line',
+                smooth: true,
+                data: hours.map(function(hour, index) {
+                    return {
+                        name: hour + '小时',
+                        value: retention[index]
+                    };
+                }),
+                markArea: {
+                    itemStyle: {
+                        color: 'rgba(255, 173, 177, 0.2)'
+                    },
+                    data: [
+                        [{
+                            name: '遗忘区域',
+                            xAxis: 0.5,
+                            yAxis: 0
+                        }, {
+                            xAxis: 1000,
+                            yAxis: 100
+                        }]
+                    ]
+                }
+            },
+            {
+                name: '复习点',
+                type: 'scatter',
+                symbolSize: 10,
+                data: reviewPoints,
+                itemStyle: {
+                    color: '#4CAF50'
+                },
+                markLine: {
+                    data: reviewPoints.map(function(point) {
+                        return [
+                            {xAxis: point.xAxis, yAxis: 0},
+                            {xAxis: point.xAxis, yAxis: point.yAxis}
+                        ];
+                    }),
+                    lineStyle: {
+                        color: '#4CAF50',
+                        type: 'dashed'
+                    }
+                }
+            },
+            {
+                name: '复习效果',
+                type: 'line',
+                smooth: true,
+                data: reviewPoints,
+                lineStyle: {
+                    color: '#4CAF50',
+                    type: 'dashed'
+                },
+                showSymbol: false
+            }
+        ]
+    });
+    
+    // 窗口大小变化时重新调整图表大小
+    window.addEventListener('resize', function() {
+        masteryChart.resize();
+        trendChart.resize();
+        forgettingCurveChart.resize();
+    });
+});
+</script>
+{% endblock %} 

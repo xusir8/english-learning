@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block title %}听写练习 - EWord{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- 页面标题 -->
+    <div class="text-center">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">听写练习</h1>
+        <p class="text-lg text-gray-600">通过听写练习提高单词记忆效果</p>
+    </div>
+
+    <!-- 统计卡片 -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+            <div class="text-3xl font-bold text-blue-600 mb-2">{{ word_lists.count }}</div>
+            <div class="text-gray-600">可用单词书</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+            <div class="text-3xl font-bold text-green-600 mb-2">{{ recent_sessions.count }}</div>
+            <div class="text-gray-600">最近练习次数</div>
+        </div>
+        <div class="bg-white rounded-lg shadow-lg p-6 text-center">
+            <div class="text-3xl font-bold text-purple-600 mb-2">
+                {% if recent_sessions %}
+                    {{ recent_sessions.0.accuracy_rate|floatformat:1 }}%
+                {% else %}
+                    0%
+                {% endif %}
+            </div>
+            <div class="text-gray-600">最近准确率</div>
+        </div>
+    </div>
+
+    <!-- 单词书选择 -->
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">选择单词书开始听写</h2>
+        
+        {% if word_lists %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for word_list in word_lists %}
+            <div class="border border-gray-200 rounded-lg p-6 hover:shadow-md transition">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="text-xl font-semibold text-gray-900">{{ word_list.name }}</h3>
+                    <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                        {{ word_list.words.count }} 词
+                    </span>
+                </div>
+                
+                {% if word_list.description %}
+                <p class="text-gray-600 text-sm mb-4">{{ word_list.description }}</p>
+                {% endif %}
+                
+                <div class="flex justify-between items-center">
+                    <div class="text-xs text-gray-500">
+                        创建于 {{ word_list.created_at|date:"Y-m-d" }}
+                    </div>
+                    <a href="{% url 'dictation:start_dictation' word_list.id %}" 
+                       class="btn-primary text-white px-4 py-2 rounded-lg text-sm font-semibold">
+                        开始听写
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-12">
+            <div class="text-gray-500 mb-4">暂无单词书</div>
+            <a href="{% url 'vocabulary:word_list' %}" class="btn-primary text-white px-6 py-3 rounded-lg">
+                去创建单词书
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- 最近练习记录 -->
+    {% if recent_sessions %}
+    <div class="bg-white rounded-lg shadow-lg p-6">
+        <h2 class="text-2xl font-bold text-gray-900 mb-6">最近练习记录</h2>
+        <div class="space-y-4">
+            {% for session in recent_sessions %}
+            <div class="flex justify-between items-center p-4 bg-gray-50 rounded-lg">
+                <div>
+                    <div class="font-semibold text-gray-900">{{ session.session_name }}</div>
+                    <div class="text-sm text-gray-600">
+                        {{ session.completed_words }}/{{ session.total_words }} 个单词
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="text-right">
+                        <div class="font-semibold text-gray-900">{{ session.accuracy_rate }}%</div>
+                        <div class="text-xs text-gray-500">准确率</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="font-semibold text-gray-900">{{ session.duration|time:"H:i:s" }}</div>
+                        <div class="text-xs text-gray-500">用时</div>
+                    </div>
+                    <a href="{% url 'dictation:dictation_result' session.id %}" 
+                       class="text-blue-600 hover:text-blue-800 text-sm">查看详情</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- 快速操作 -->
+    <div class="flex justify-center space-x-4">
+        <a href="{% url 'vocabulary:word_list' %}" 
+           class="bg-gray-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-gray-600 transition">
+            管理单词
+        </a>
+        <a href="{% url 'dictation:progress' %}" 
+           class="bg-green-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-600 transition">
+            查看进度
+        </a>
+    </div>
+</div>
+{% endblock %} 

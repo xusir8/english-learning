@@ -1,0 +1,225 @@
+{% extends 'base.html' %}
+
+{% block title %}单词管理 - EWord{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <!-- 页面标题 -->
+    <div class="text-center">
+        <h1 class="text-4xl font-bold text-gray-900 mb-4">单词管理</h1>
+        <p class="text-lg text-gray-600">管理您的单词库和单词书</p>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="flex justify-center space-x-4">
+        <button onclick="openAddWordModal()" class="btn-primary text-white px-6 py-3 rounded-lg font-semibold">
+            添加单词
+        </button>
+        <button onclick="openCreateListModal()" class="bg-green-500 text-white px-6 py-3 rounded-lg font-semibold hover:bg-green-600 transition">
+            创建单词书
+        </button>
+    </div>
+
+    <!-- 单词列表 -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- 所有单词 -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">所有单词 ({{ words.count }})</h2>
+            <div class="space-y-3 max-h-96 overflow-y-auto">
+                {% for word in words %}
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                    <div>
+                        <div class="font-semibold text-gray-900">{{ word.word }}</div>
+                        <div class="text-sm text-gray-600">{{ word.translation }}</div>
+                        {% if word.phonetic %}
+                        <div class="text-xs text-gray-500">[{{ word.phonetic }}]</div>
+                        {% endif %}
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <span class="px-2 py-1 text-xs rounded-full 
+                            {% if word.difficulty_level == 1 %}bg-green-100 text-green-800
+                            {% elif word.difficulty_level == 2 %}bg-yellow-100 text-yellow-800
+                            {% else %}bg-red-100 text-red-800{% endif %}">
+                            {{ word.get_difficulty_level_display }}
+                        </span>
+                        <a href="{% url 'vocabulary:word_detail' word.id %}" 
+                           class="text-blue-600 hover:text-blue-800 text-sm">详情</a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-gray-500 py-8">暂无单词</div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- 单词书 -->
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">单词书 ({{ word_lists.count }})</h2>
+            <div class="space-y-3">
+                {% for word_list in word_lists %}
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
+                    <div>
+                        <div class="font-semibold text-gray-900">{{ word_list.name }}</div>
+                        <div class="text-sm text-gray-600">{{ word_list.description|default:"暂无描述" }}</div>
+                        <div class="text-xs text-gray-500">{{ word_list.words.count }} 个单词</div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <a href="{% url 'vocabulary:word_list_detail' word_list.id %}" 
+                           class="text-blue-600 hover:text-blue-800 text-sm">查看</a>
+                        <a href="{% url 'dictation:start_dictation' word_list.id %}" 
+                           class="bg-purple-500 text-white px-3 py-1 rounded text-sm hover:bg-purple-600 transition">听写</a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-gray-500 py-8">暂无单词书</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 添加单词模态框 -->
+<div id="addWordModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <h3 class="text-xl font-bold mb-4">添加单词</h3>
+        <form id="addWordForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">单词 *</label>
+                <input type="text" name="word" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">音标</label>
+                <input type="text" name="phonetic" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">中文释义 *</label>
+                <textarea name="translation" required rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">例句</label>
+                <textarea name="example_sentence" rows="2" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">难度等级</label>
+                <select name="difficulty_level" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="1">简单</option>
+                    <option value="2">中等</option>
+                    <option value="3">困难</option>
+                </select>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeAddWordModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">取消</button>
+                <button type="submit" class="btn-primary text-white px-4 py-2 rounded">添加</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- 创建单词书模态框 -->
+<div id="createListModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-md mx-4">
+        <h3 class="text-xl font-bold mb-4">创建单词书</h3>
+        <form id="createListForm" class="space-y-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">单词书名称 *</label>
+                <input type="text" name="name" required class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">描述</label>
+                <textarea name="description" rows="3" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+            </div>
+            <div class="flex justify-end space-x-3">
+                <button type="button" onclick="closeCreateListModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">取消</button>
+                <button type="submit" class="btn-primary text-white px-4 py-2 rounded">创建</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function openAddWordModal() {
+    document.getElementById('addWordModal').classList.remove('hidden');
+    document.getElementById('addWordModal').classList.add('flex');
+}
+
+function closeAddWordModal() {
+    document.getElementById('addWordModal').classList.add('hidden');
+    document.getElementById('addWordModal').classList.remove('flex');
+}
+
+function openCreateListModal() {
+    document.getElementById('createListModal').classList.remove('hidden');
+    document.getElementById('createListModal').classList.add('flex');
+}
+
+function closeCreateListModal() {
+    document.getElementById('createListModal').classList.add('hidden');
+    document.getElementById('createListModal').classList.remove('flex');
+}
+
+// 添加单词表单提交
+document.getElementById('addWordForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const data = {
+        word: formData.get('word'),
+        phonetic: formData.get('phonetic'),
+        translation: formData.get('translation'),
+        example_sentence: formData.get('example_sentence'),
+        difficulty_level: parseInt(formData.get('difficulty_level'))
+    };
+    
+    try {
+        const response = await fetch('{% url "vocabulary:add_word" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('单词添加成功！');
+            location.reload();
+        } else {
+            alert('添加失败：' + result.message);
+        }
+    } catch (error) {
+        alert('网络错误，请重试');
+    }
+});
+
+// 创建单词书表单提交
+document.getElementById('createListForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+    const data = {
+        name: formData.get('name'),
+        description: formData.get('description')
+    };
+    
+    try {
+        const response = await fetch('{% url "vocabulary:create_word_list" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('单词书创建成功！');
+            location.reload();
+        } else {
+            alert('创建失败：' + result.message);
+        }
+    } catch (error) {
+        alert('网络错误，请重试');
+    }
+});
+</script>
+{% endblock %} 
