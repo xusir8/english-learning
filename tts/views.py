@@ -9,6 +9,7 @@ import edge_tts
 import pyttsx3
 import io
 from gtts import gTTS
+import time # Added for retry mechanism
 
 # 可用的Edge TTS语音列表
 VOICE_OPTIONS = {
@@ -133,22 +134,38 @@ def generate_audio_gtts(text, voice_type, speed=1.0):
         slow = False
         if speed < 0.8:
             slow = True
-            
-        try:
-            tts = gTTS(text=text, lang=lang, slow=slow)
-            tts.save(temp_filename)
-        except Exception as e:
-            print(f"gTTS生成音频失败: {str(e)}")
-            os.unlink(temp_filename)
-            raise Exception(f"gTTS生成音频失败: {str(e)}")
         
-        # 验证文件是否生成成功
-        if os.path.exists(temp_filename) and os.path.getsize(temp_filename) > 0:
-            print(f"音频文件生成成功: {temp_filename}, 大小: {os.path.getsize(temp_filename)} 字节")
+        # 添加重试机制
+        max_retries = 3
+        retry_count = 0
+        success = False
+        
+        while retry_count < max_retries and not success:
+            try:
+                tts = gTTS(text=text, lang=lang, slow=slow)
+                tts.save(temp_filename)
+                
+                # 验证文件是否生成成功并且大小合理
+                if os.path.exists(temp_filename) and os.path.getsize(temp_filename) > 100:  # 确保文件大小至少100字节
+                    print(f"音频文件生成成功: {temp_filename}, 大小: {os.path.getsize(temp_filename)} 字节")
+                    success = True
+                else:
+                    print(f"音频文件生成失败或大小异常: {temp_filename}, 大小: {os.path.getsize(temp_filename)} 字节")
+                    retry_count += 1
+                    time.sleep(0.5)  # 等待500毫秒后重试
+            except Exception as e:
+                print(f"gTTS生成音频失败 (尝试 {retry_count+1}/{max_retries}): {str(e)}")
+                retry_count += 1
+                if retry_count >= max_retries:
+                    os.unlink(temp_filename)
+                    raise Exception(f"gTTS生成音频失败，已重试{max_retries}次: {str(e)}")
+                time.sleep(0.5)  # 等待500毫秒后重试
+        
+        if success:
             return temp_filename
         else:
-            print(f"音频文件生成失败或为空: {temp_filename}")
-            raise Exception("音频文件生成失败或为空")
+            os.unlink(temp_filename)
+            raise Exception("音频文件生成失败，已达到最大重试次数")
     except Exception as e:
         print(f"生成音频文件时出错: {str(e)}")
         raise e

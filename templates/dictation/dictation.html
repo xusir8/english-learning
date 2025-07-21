@@ -232,9 +232,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // 自动播放单词（2遍）
     setTimeout(() => {
         playWord();
+        
+        // 根据不同的TTS引擎调整延迟时间
+        const delayTime = (ttsEngine === 'chatTts') ? 2500 : 1500;
+        
         setTimeout(() => {
             playWord();
-        }, 1500);
+        }, delayTime);
     }, 1000);
 });
 
@@ -505,6 +509,9 @@ function playWithChatTts(word, voiceType) {
         // 设置音频源并添加事件监听器
         audioPlayer.src = url;
         
+        // 确保音频完全加载后再播放
+        audioPlayer.preload = 'auto';
+        
         // 音频加载完成后播放
         audioPlayer.onloadeddata = function() {
             console.log('音频数据已加载');
@@ -542,7 +549,7 @@ function repeatWord() {
     playWord();
     setTimeout(() => {
         playWord();
-    }, 1500);
+    }, 2500); // 增加延迟到2.5秒，确保第一次播放完成
 }
 
 // 切换播放/暂停
