@@ -17,6 +17,7 @@ urlpatterns = [
     path('api/word-list/<int:list_id>/update/', views.update_word_list, name='update_word_list'),
     path('api/word-list/<int:list_id>/delete/', views.delete_word_list, name='delete_word_list'),
     path('api/word-list/batch-remove-words/', views.batch_remove_words, name='batch_remove_words'),
+    path('api/generate-audio/', views.generate_audio, name='generate_audio'),
     
     # 复习计划相关URL
     path('review/', views.review_dashboard, name='review_dashboard'),

@@ -8,6 +8,8 @@ from django.db import models
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from .models import WordList, WordLearningRecord, ReviewPlan
+import os
+import subprocess
 
 # Create your views here.
 
@@ -508,6 +510,152 @@ def batch_remove_words(request):
             return JsonResponse({
                 'success': False,
                 'message': f'删除失败: {str(e)}'
+            })
+    
+    return JsonResponse({'success': False, 'message': '只支持POST请求'})
+
+@csrf_exempt
+def generate_audio(request):
+    """批量生成单词音频API"""
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            word_ids = data.get('word_ids', [])
+            
+            if not word_ids:
+                return JsonResponse({
+                    'success': False,
+                    'message': '请选择要生成音频的单词'
+                })
+            
+            # 获取选中的单词
+            words = Word.objects.filter(id__in=word_ids)
+            
+            # 确保音频目录存在
+            audio_dir = 'media/audio'
+            if not os.path.exists(audio_dir):
+                os.makedirs(audio_dir)
+            
+            # 统计结果
+            generated_count = 0
+            existing_count = 0
+            failed_count = 0
+            failed_words = []
+            
+            # 添加导入time模块
+            import time
+            import sys
+            
+            # 批处理参数
+            batch_size = 5  # 每批处理的单词数
+            retry_count = 2  # 失败重试次数
+            retry_delay = 3  # 重试间隔(秒)
+            request_delay = 2  # 请求间隔(秒)
+            
+            # 将单词分批处理
+            word_batches = [list(words[i:i+batch_size]) for i in range(0, len(words), batch_size)]
+            
+            print(f"开始处理 {len(words)} 个单词，分为 {len(word_batches)} 批")
+            sys.stdout.flush()
+            
+            for batch_idx, batch in enumerate(word_batches):
+                print(f"处理第 {batch_idx + 1}/{len(word_batches)} 批，包含 {len(batch)} 个单词")
+                sys.stdout.flush()
+                
+                for word_idx, word in enumerate(batch):
+                    # 创建安全的文件名
+                    safe_word = ''.join(c if c.isalnum() or c in '_- ' else '_' for c in word.word)
+                    # 去除首尾空白，并将中间多个空白字符合并为一个空格
+                    import re
+                    safe_word = re.sub(r'\s+', ' ', safe_word.strip())
+                    safe_word = safe_word.replace(' ', '_')
+                    audio_file = os.path.join(audio_dir, f"{safe_word}.wav")
+                    
+                    print(f"  处理单词 {word_idx + 1}/{len(batch)}: '{word.word}' -> '{safe_word}.wav'")
+                    sys.stdout.flush()
+                    
+                    # 检查文件是否已存在 (不需要等待)
+                    if os.path.exists(audio_file):
+                        print(f"  单词 '{word.word}' 的音频文件已存在，跳过")
+                        sys.stdout.flush()
+                        existing_count += 1
+                        continue
+                    
+                    # 添加重试机制
+                    success = False
+                    error_msg = ""
+                    
+                    for attempt in range(retry_count + 1):
+                        try:
+                            # 如果是重试，先等待
+                            if attempt > 0:
+                                print(f"  重试第 {attempt} 次生成 '{word.word}' 的音频")
+                                sys.stdout.flush()
+                                time.sleep(retry_delay)
+                            
+                            # 调用minimax_tts.py生成音频
+                            cmd = ['python', 'minimax_tts.py', '--text', word.word, '--output', audio_file]
+                            print(f"  执行命令: {' '.join(cmd)}")
+                            sys.stdout.flush()
+                            
+                            result = subprocess.run(cmd, capture_output=True, text=True)
+                            
+                            if result.returncode == 0:
+                                print(f"  成功生成 '{word.word}' 的音频")
+                                sys.stdout.flush()
+                                generated_count += 1
+                                success = True
+                                break
+                            else:
+                                error_msg = result.stderr.strip() or result.stdout.strip() or '未知错误'
+                                print(f"  生成 '{word.word}' 的音频失败: {error_msg}")
+                                sys.stdout.flush()
+                                
+                        except Exception as e:
+                            error_msg = str(e)
+                            print(f"  生成 '{word.word}' 的音频出现异常: {error_msg}")
+                            sys.stdout.flush()
+                    
+                    # 如果所有尝试都失败
+                    if not success:
+                        failed_count += 1
+                        failed_words.append({
+                            'word': word.word,
+                            'error': error_msg
+                        })
+                    
+                    # 添加请求间隔，避免请求过快 (只有在成功或失败后才等待，跳过已存在的不等待)
+                    print(f"  等待 {request_delay} 秒后继续下一个单词")
+                    sys.stdout.flush()
+                    time.sleep(request_delay)
+                
+                # 每批处理完成后额外等待，避免API限制
+                if batch_idx < len(word_batches) - 1:  # 如果不是最后一批
+                    print(f"第 {batch_idx + 1} 批处理完成，等待 1 秒后继续下一批")
+                    sys.stdout.flush()
+                    time.sleep(1)
+            
+            print(f"所有单词处理完成：新生成 {generated_count} 个，已存在 {existing_count} 个，失败 {failed_count} 个")
+            sys.stdout.flush()
+            
+            return JsonResponse({
+                'success': True,
+                'message': f'音频生成完成：新生成 {generated_count} 个，已存在 {existing_count} 个，失败 {failed_count} 个',
+                'generated_count': generated_count,
+                'existing_count': existing_count,
+                'failed_count': failed_count,
+                'failed_words': failed_words
+            })
+            
+        except Exception as e:
+            import traceback
+            error_details = traceback.format_exc()
+            print(f"音频生成过程中出现异常: {str(e)}\n{error_details}")
+            sys.stdout.flush()
+            
+            return JsonResponse({
+                'success': False,
+                'message': f'音频生成失败: {str(e)}'
             })
     
     return JsonResponse({'success': False, 'message': '只支持POST请求'})

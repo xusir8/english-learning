@@ -74,8 +74,12 @@
                 <!-- 发音引擎选择 -->
                 <div class="flex justify-center mb-4">
                     <div class="inline-flex rounded-md shadow-sm" role="group">
-                        <button type="button" id="webSpeechBtn" onclick="setTtsEngine('webSpeech')"
+                        <button type="button" id="localBtn" onclick="setTtsEngine('local')"
                                 class="px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-700 rounded-l-lg hover:bg-blue-50 focus:z-10 focus:ring-2 focus:ring-blue-500 active-tts">
+                            本地
+                        </button>
+                        <button type="button" id="webSpeechBtn" onclick="setTtsEngine('webSpeech')"
+                                class="px-4 py-2 text-sm font-medium text-blue-700 bg-white border border-blue-700 hover:bg-blue-50 focus:z-10 focus:ring-2 focus:ring-blue-500">
                             浏览器发音
                         </button>
                         <button type="button" id="edgeTtsBtn" onclick="setTtsEngine('edgeTts')"
@@ -193,14 +197,14 @@ let sessionId = {{ session.id|default:0 }};
 let speechSynthesis = window.speechSynthesis;
 let currentUtterance = null;
 let hasPlayed = false;
-let ttsEngine = 'webSpeech'; // 默认使用Web Speech API
+let ttsEngine = 'local'; // 默认使用本地音频
 
 // 页面加载时聚焦输入框
 document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('answerInput').focus();
     
     // 从本地存储加载TTS引擎选择
-    const savedEngine = localStorage.getItem('ttsEngine') || 'webSpeech';
+    const savedEngine = localStorage.getItem('ttsEngine') || 'local';
     setTtsEngine(savedEngine);
     
     // 从本地存储加载语音选择
@@ -224,8 +228,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('playStatus').textContent = '您的浏览器不支持语音合成功能';
         document.getElementById('playBtn').disabled = true;
         document.getElementById('repeatBtn').disabled = true;
-        // 自动切换到Edge TTS
-        setTtsEngine('edgeTts');
+        // 自动切换到本地音频
+        setTtsEngine('local');
         return;
     }
     
@@ -248,14 +252,22 @@ function setTtsEngine(engine) {
         document.getElementById('webSpeechBtn').classList.add('active-tts');
         document.getElementById('edgeTtsBtn').classList.remove('active-tts');
         document.getElementById('chatTtsBtn').classList.remove('active-tts');
+        document.getElementById('localBtn').classList.remove('active-tts');
     } else if (engine === 'edgeTts') {
         document.getElementById('webSpeechBtn').classList.remove('active-tts');
         document.getElementById('edgeTtsBtn').classList.add('active-tts');
         document.getElementById('chatTtsBtn').classList.remove('active-tts');
+        document.getElementById('localBtn').classList.remove('active-tts');
     } else if (engine === 'chatTts') {
         document.getElementById('webSpeechBtn').classList.remove('active-tts');
         document.getElementById('edgeTtsBtn').classList.remove('active-tts');
         document.getElementById('chatTtsBtn').classList.add('active-tts');
+        document.getElementById('localBtn').classList.remove('active-tts');
+    } else if (engine === 'local') {
+        document.getElementById('webSpeechBtn').classList.remove('active-tts');
+        document.getElementById('edgeTtsBtn').classList.remove('active-tts');
+        document.getElementById('chatTtsBtn').classList.remove('active-tts');
+        document.getElementById('localBtn').classList.add('active-tts');
     }
 }
 
@@ -273,6 +285,8 @@ function playWord() {
         playWithEdgeTts(word, selectedVoice);
     } else if (ttsEngine === 'chatTts') {
         playWithChatTts(word, selectedVoice);
+    } else if (ttsEngine === 'local') {
+        playWithLocal(word);
     }
 }
 
@@ -536,6 +550,78 @@ function playWithChatTts(word, voiceType) {
     });
 }
 
+// 使用本地音频文件播放
+function playWithLocal(word) {
+    const audioPlayer = document.getElementById('audioPlayer');
+    
+    // 停止当前播放
+    if (audioPlayer) {
+        audioPlayer.pause();
+        audioPlayer.currentTime = 0;
+    }
+    
+    // 根据minimax_tts.py的命名规则创建安全的文件名
+    const safeWord = word.replace(/[^a-zA-Z0-9_\- ]/g, '_').replace(/\s+/g, '_');
+    
+    // 尝试从本地加载音频文件
+    const audioUrl = `/media/audio/${safeWord}.wav`;
+    console.log(`尝试加载本地音频文件: ${audioUrl}`);
+    
+    updatePlayStatus(`正在加载本地音频: ${safeWord}.wav`, '⌛', '加载中');
+    
+    // 检查音频文件是否存在
+    fetch(audioUrl)
+        .then(response => {
+            console.log(`音频文件请求状态: ${response.status} ${response.statusText}`);
+            if (!response.ok) {
+                throw new Error(`本地音频文件不存在: ${audioUrl}`);
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            console.log(`收到本地音频数据: ${blob.type}, ${blob.size} bytes`);
+            
+            // 创建一个新的URL对象
+            const url = URL.createObjectURL(blob);
+            
+            // 设置音频源并添加事件监听器
+            audioPlayer.src = url;
+            
+            // 音频加载完成后播放
+            audioPlayer.onloadeddata = function() {
+                console.log('本地音频数据已加载');
+                hasPlayed = true;
+                updatePlayStatus('正在播放...', '⏸️', '暂停');
+                audioPlayer.play().catch(error => {
+                    console.error('播放本地音频失败:', error);
+                    updatePlayStatus('播放失败，请重试', '🔊', '播放单词');
+                });
+            };
+            
+            // 音频播放结束后释放资源
+            audioPlayer.onended = function() {
+                console.log('本地音频播放结束');
+                updatePlayStatus('播放完成，请开始听写', '🔊', '播放单词(2遍)');
+                URL.revokeObjectURL(url);
+            };
+            
+            // 音频播放错误处理
+            audioPlayer.onerror = function(e) {
+                console.error('本地音频播放错误:', e);
+                updatePlayStatus('播放失败，请重试', '🔊', '播放单词');
+                URL.revokeObjectURL(url);
+            };
+        })
+        .catch(error => {
+            console.error(`获取本地音频失败，自动切换到浏览器发音: ${error.message}`);
+            updatePlayStatus('本地音频不存在，使用浏览器发音', '🔊', '播放单词');
+            
+            // 自动切换到浏览器发音
+            const selectedVoice = document.getElementById('voiceSelector').value;
+            playWithWebSpeech(word, selectedVoice);
+        });
+}
+
 // 重复播放函数
 function repeatWord() {
     // 读两遍
@@ -571,6 +657,15 @@ function togglePlay() {
             updatePlayStatus('已暂停', '▶️', '继续播放');
         }
     } else if (ttsEngine === 'chatTts') {
+        const audioPlayer = document.getElementById('audioPlayer');
+        if (audioPlayer.paused) {
+            audioPlayer.play();
+            updatePlayStatus('正在播放...', '⏸️', '暂停');
+        } else {
+            audioPlayer.pause();
+            updatePlayStatus('已暂停', '▶️', '继续播放');
+        }
+    } else if (ttsEngine === 'local') {
         const audioPlayer = document.getElementById('audioPlayer');
         if (audioPlayer.paused) {
             audioPlayer.play();
