@@ -37,6 +37,11 @@ def word_list_detail(request, list_id):
     word_list_obj = get_object_or_404(WordList, id=list_id)
     words = word_list_obj.words.all().order_by('wordlistword__order')
     
+    # 添加调试信息
+    print(f"词书ID: {list_id}, 词书名称: {word_list_obj.name}")
+    print(f"单词数量: {words.count()}")
+    print(f"单词列表: {[word.word for word in words[:10]]}")
+    
     context = {
         'word_list': word_list_obj,
         'words': words,
@@ -484,11 +489,17 @@ def batch_remove_words(request):
     """批量从词书中移除单词API"""
     if request.method == 'POST':
         try:
+            print("收到批量删除请求")
             data = json.loads(request.body)
+            print(f"请求数据: {data}")
+            
             word_list = get_object_or_404(WordList, id=data['list_id'])
             word_ids = data['word_ids']
             
+            print(f"词书ID: {word_list.id}, 单词ID列表: {word_ids}")
+            
             if not word_ids:
+                print("未选择要删除的单词")
                 return JsonResponse({
                     'success': False,
                     'message': '请选择要删除的单词'
@@ -500,6 +511,8 @@ def batch_remove_words(request):
                 word_id__in=word_ids
             ).delete()[0]
             
+            print(f"成功删除 {removed_count} 个单词")
+            
             return JsonResponse({
                 'success': True,
                 'message': f'成功从词书中移除 {removed_count} 个单词',
@@ -507,6 +520,9 @@ def batch_remove_words(request):
             })
             
         except Exception as e:
+            import traceback
+            print(f"批量删除失败: {str(e)}")
+            print(traceback.format_exc())
             return JsonResponse({
                 'success': False,
                 'message': f'删除失败: {str(e)}'

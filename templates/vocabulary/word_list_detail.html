@@ -11,6 +11,10 @@
             <p class="text-lg text-gray-600">{{ word_list.description|default:"暂无描述" }}</p>
         </div>
         <div class="flex space-x-3">
+            <button onclick="alert('测试按钮点击成功！')" 
+                   style="background-color: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; font-size: 0.875rem; line-height: 1.25rem; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); border: 2px solid #b91c1c;">
+                测试按钮
+            </button>
             <a href="{% url 'dictation:start_dictation' word_list.id %}" 
                class="btn-primary text-white px-6 py-3 rounded-lg font-semibold">
                 开始听写
@@ -60,8 +64,8 @@
                         class="bg-green-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-600 transition disabled:opacity-50 disabled:bg-green-300 disabled:cursor-not-allowed">
                     批量生成音频
                 </button>
-                <button id="batchDeleteBtn" onclick="batchDeleteWords()" disabled
-                        class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-red-600 transition disabled:opacity-50 disabled:bg-red-300 disabled:cursor-not-allowed">
+                <button id="batchDeleteBtn" onclick="batchDeleteWords()" 
+                        style="background-color: #ef4444; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 600; font-size: 0.875rem; line-height: 1.25rem; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); border: 2px solid #b91c1c;">
                     批量删除
                 </button>
             </div>
@@ -293,6 +297,24 @@
 
 {% block extra_js %}
 <script>
+// 页面加载时初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 初始化选中计数
+    updateSelectedCount();
+    console.log('页面加载完成，初始化选中计数');
+    
+    // 添加调试信息
+    console.log('批量删除按钮状态:', document.getElementById('batchDeleteBtn').disabled);
+    console.log('全选复选框状态:', document.getElementById('selectAll').checked);
+    console.log('单词复选框数量:', document.querySelectorAll('.word-checkbox').length);
+    
+    // 确保批量删除按钮可点击
+    document.getElementById('batchDeleteBtn').addEventListener('click', function() {
+        console.log('批量删除按钮被点击');
+        batchDeleteWords();
+    });
+});
+
 // 打开/关闭添加单词模态框
 function openAddWordModal() {
     document.getElementById('addWordModal').classList.remove('hidden');
@@ -622,7 +644,6 @@ function updateSelectedCount() {
     
     const batchDeleteBtn = document.getElementById('batchDeleteBtn');
     const batchGenerateAudioBtn = document.getElementById('batchGenerateAudioBtn');
-    const selectAllCheckbox = document.getElementById('selectAll');
     
     // 更新批量操作按钮状态
     batchDeleteBtn.disabled = count === 0;
@@ -630,6 +651,7 @@ function updateSelectedCount() {
     
     // 更新全选复选框状态
     const allCheckboxes = document.querySelectorAll('.word-checkbox');
+    const selectAllCheckbox = document.getElementById('selectAll');
     if (count === 0) {
         selectAllCheckbox.indeterminate = false;
         selectAllCheckbox.checked = false;
@@ -638,13 +660,21 @@ function updateSelectedCount() {
         selectAllCheckbox.checked = true;
     } else {
         selectAllCheckbox.indeterminate = true;
-        selectAllCheckbox.checked = false;
     }
 }
 
 async function batchDeleteWords() {
+    console.log('开始执行批量删除函数');
     const selectedCheckboxes = document.querySelectorAll('.word-checkbox:checked');
+    console.log('选中的复选框数量:', selectedCheckboxes.length);
+    
+    // 输出每个选中的复选框的值
+    selectedCheckboxes.forEach((checkbox, index) => {
+        console.log(`选中的复选框 ${index + 1}:`, checkbox.value);
+    });
+    
     const selectedWordIds = Array.from(selectedCheckboxes).map(checkbox => parseInt(checkbox.value));
+    console.log('选中的单词ID列表:', selectedWordIds);
     
     if (selectedWordIds.length === 0) {
         alert('请选择要删除的单词');
@@ -656,6 +686,11 @@ async function batchDeleteWords() {
     }
     
     try {
+        console.log('准备发送删除请求，参数:', {
+            list_id: {{ word_list.id }},
+            word_ids: selectedWordIds
+        });
+        
         const response = await fetch('{% url "vocabulary:batch_remove_words" %}', {
             method: 'POST',
             headers: {
@@ -668,7 +703,9 @@ async function batchDeleteWords() {
             })
         });
         
+        console.log('收到响应:', response);
         const result = await response.json();
+        console.log('删除结果:', result);
         
         if (result.success) {
             alert(result.message);
@@ -677,6 +714,7 @@ async function batchDeleteWords() {
             alert('删除失败：' + result.message);
         }
     } catch (error) {
+        console.error('删除单词时出错:', error);
         alert('网络错误，请重试');
     }
 }
