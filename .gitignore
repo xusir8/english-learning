@@ -36,6 +36,7 @@ ENV/
 *.log
 *.pot
 *.pyc
+db.sqlite3
 db.sqlite3-journal
 media/
 
@@ -49,6 +50,8 @@ yarn-error.log
 .DS_Store
 
 # Project specific
-minimax_tts.py
 example_minimax.py
 test_minimaxi.py
+
+# Local configuration
+.local/
